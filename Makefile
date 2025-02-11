@@ -1,15 +1,15 @@
 all: up
 
 up:
-	docker compose -f ./srcs/docker-compose.yml up -d --build
+	docker compose -f ./srcs/docker-compose.yml up --build
 
 down:
 	docker compose -f ./srcs/docker-compose.yml down
 
 clean:
 	docker container prune -f
-	docker volume rm $(docker volume ls -q)
-	docker rmi -f $(docker images -q)
+	docker volume ls -q | xargs -r docker volume rm
+	docker images -q | xargs -r docker rmi -f
 
 get-key: jenkins-key nexus-key
 
