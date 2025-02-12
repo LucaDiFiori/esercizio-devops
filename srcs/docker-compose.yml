@@ -40,7 +40,7 @@ services:
     # depends_on:
     #   - jenkins-docker
     networks:
-      - jenkins
+      - devops-net
     environment:
       DOCKER_HOST: "tcp://jenkins-docker:2376"
       DOCKER_CERT_PATH: "/certs/client"
@@ -57,11 +57,11 @@ services:
     container_name: nexus
     restart: always
     networks:
-      - devops
+      - devops-net
     ports:
       - "8081:8081" # Porta web di Nexus: Espone la porta 8081 del container sulla porta 8081 della macchina host.
                     # usata per l'interfaccia web e l'accesso amministrativo di Nexus. Quindi, per accedere all'interfaccia 
-                    #utente di Nexus, dovrai andare su http://localhost:8081.
+                    #utente di Nexus, dovrai andare su http://localhost:8081
 
                     # Serve per l'accesso all'interfaccia utente di Nexus (il pannello di controllo, le configurazioni, ecc.).
 
@@ -80,25 +80,27 @@ services:
     container_name: gitlab
     restart: unless-stopped
     networks:
-      - devops
+      - devops-net
     hostname: gitlab.local
     environment:
       GITLAB_OMNIBUS_CONFIG: |
         external_url 'http://gitlab.local'
         gitlab_rails['gitlab_shell_ssh_port'] = 2222
     ports:
-      - "80:80" # HTTP
-      - "443:443" # HTTPS
-      - "2222:22" # SSH
-      # Per accedere a GitLab usando l’URL http://gitlab.local sul tuo computer, potrebbe essere necessario aggiungere una voce nel file hosts (ad es. 127.0.0.1 gitlab.local).
+      - "80:80" # HTTP Per accedere a GitLab usando l’URL http://localhost e la porta 80.
+      # - "443:443" # HTTPS per utilizzare GitLab con HTTPS dovrei creare un certificato SSL e configurare GitLab per utilizzarlo.
+      - "2222:22" # SSH: serve a mappare la porta 22 del container GitLab (usata per SSH) alla porta 2222 del tuo host. 
+                  #      Questo ci permette di accedere al servizio SSH di GitLab tramite la porta 2222 del tuo host.
+                  #      Con questa configurazione, possiamo accedere al servizio SSH di GitLab utilizzando la porta 2222 dell'host. 
+                  #      Ad esempio, per clonare un repository Git tramite SSH, possiamo usare un comando come questo:
+                  #      git clone ssh://git@localhost:2222/namespace/repository.git
     volumes:
       - gitlab-config:/etc/gitlab
       - gitlab-logs:/var/log/gitlab
       - gitlab-data:/var/opt/gitlab
 
 networks:
-  jenkins:
-  devops:
+  devops-net:
 
 volumes:
   jenkins-docker-certs:
@@ -114,3 +116,112 @@ volumes:
 # 2. Se ci sono riprendere l articolo su jekins e nexus
 # 3. Aggiungere un comando al make che mi faccia stampare le due password
 #    con exec
+
+
+
+
+
+
+
+# VERSIONE DI FABIOLA:
+
+# # definizione dei servizi (container) che compongono l'ambiente
+# services:
+#   jenkins:
+#     image: jenkins/jenkins:lts-jdk17
+#         # nome personalizzato rende più facile identificare il container
+#     container_name: jenkins
+#         # mapping delle porte dall'host al container, formato: "porta_host:porta_container"
+#     ports:
+#         # interfaccia web
+#       - "8080:8080"
+#         # per interfacciarsi con altri jenkins agents
+#       - "50000:50000"
+#         # mappa la directory jenkins_home del container con un volume docker per mantenere configurazioni e dati
+#     volumes:
+#       - jenkins_home:/var/jenkins_home
+#     environment:
+#         # disabilita la procedura guidata di installazione iniziale
+#       - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
+#         # connessione alla rete personalizzata
+#     networks:
+#       - devops_network
+#         # politica di riavvio del container, unless-stopped: Riavvia sempre tranne che per arresti espliciti
+#     restart: unless-stopped
+
+#   # secondo 
+#   nexus:
+#     image: sonatype/nexus3
+#     container_name: nexus
+#     ports:
+#       # interfaccia web
+#       - "8081:8081"
+#       # porta 8083: Potenzialmente per registry Docker privato
+#       - "8083:8083"
+#     volumes:
+#       - nexus_data:/nexus-data
+#       # configurazione dei parametri JVM
+#     environment:
+#       # imposta parametri di memoria per Java
+#       - INSTALL4J_ADD_VM_PARAMS=-Xms2703m -Xmx2703m -XX:MaxDirectMemorySize=2703m
+#     networks:
+#       - devops_network
+#     restart: unless-stopped
+
+#   gitlab:
+#     # immagine Community Edition di GitLab
+#     image: gitlab/gitlab-ce:latest
+#     container_name: gitlab
+#     hostname: gitlab.local
+#     ports:
+#       # Porta 80: HTTP
+#       - "80:80"
+#       # Porta 443: HTTPS
+#       - "443:443"
+#       # Porta 22: SSH per Git
+#       - "22:22"
+#     volumes:
+#       # Volume per configurazioni
+#       - gitlab_config:/etc/gitlab
+#       # Volume per log
+#       - gitlab_logs:/var/log/gitlab
+#       # Volume per dati
+#       - gitlab_data:/var/opt/gitlab
+#     environment:
+#       # Configurazione Omnibus (sistema di configurazione di GitLab)
+#       GITLAB_OMNIBUS_CONFIG: |
+#         external_url 'http://gitlab.local'
+#         registry_external_url 'http://gitlab.local:5050'
+#         gitlab_rails['initial_root_password'] = 'xK9#mP2$vL5@nQ8'
+#         gitlab_rails['initial_shared_runners_registration_token'] = "token-personalizzato"
+#         gitlab_rails['initial_root_email'] = "root@gitlab.local"
+#         gitlab_rails['gitlab_shell_ssh_port'] = 22
+#         gitlab_rails['gitlab_email_enabled'] = false
+        
+#       # URL esterno per accedere a GitLab
+#       # URL per il registro Docker interno
+#       # Password iniziale per l'utente root 
+#       # NOTA: DA CAMBIARE ASSOLUTAMENTE se va in produzione!
+
+#     # Dimensione della memoria condivisa, utile per migliorare le prestazioni
+#     shm_size: '256m'
+#     networks:
+#       - devops_network
+#     restart: unless-stopped
+
+# networks:
+#   devops_network:
+#     driver: bridge
+
+# # Definizione dei volumi persistenti
+# volumes:
+#   jenkins_home:
+#     driver: local
+#   nexus_data:
+#     driver: local
+#   gitlab_config:
+#     driver: local
+#   gitlab_logs:
+#     driver: local
+#   gitlab_data:
+#     driver: local
